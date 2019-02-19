@@ -12,7 +12,6 @@ pymysql
 
 # Testing
 autoflake
-black
 codecov
 isort
 mypy
