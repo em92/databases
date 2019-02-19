@@ -2,6 +2,7 @@ import logging
 import typing
 
 import asyncpg
+from async_generator import async_generator, yield_
 from sqlalchemy.dialects.postgresql import pypostgresql
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.sql import ClauseElement
@@ -116,13 +117,12 @@ class PostgresConnection(ConnectionBackend):
             single_query, args, result_columns = self._compile(single_query)
             await self._connection.execute(single_query, *args)
 
-    async def iterate(
-        self, query: ClauseElement
-    ) -> typing.AsyncGenerator[typing.Any, None]:
+    @async_generator
+    async def iterate(self, query: ClauseElement):  # type: ignore
         assert self._connection is not None, "Connection is not acquired"
         query, args, result_columns = self._compile(query)
         async for row in self._connection.cursor(query, *args):
-            yield Record(row, result_columns, self._dialect)
+            await yield_(Record(row, result_columns, self._dialect))
 
     def transaction(self) -> TransactionBackend:
         return PostgresTransaction(connection=self)

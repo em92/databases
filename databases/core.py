@@ -5,6 +5,7 @@ import typing
 from types import TracebackType
 from urllib.parse import SplitResult, urlsplit
 
+from async_generator import async_generator, yield_
 from sqlalchemy.engine import RowProxy
 from sqlalchemy.sql import ClauseElement
 
@@ -104,12 +105,11 @@ class Database:
         async with self.connection() as connection:
             return await connection.execute_many(query=query, values=values)
 
-    async def iterate(
-        self, query: ClauseElement
-    ) -> typing.AsyncGenerator[RowProxy, None]:
+    @async_generator
+    async def iterate(self, query: ClauseElement):  # type: ignore
         async with self.connection() as connection:
             async for record in connection.iterate(query):
-                yield record
+                await yield_(record)
 
     def connection(self) -> "Connection":
         if self._global_connection is not None:
@@ -168,11 +168,10 @@ class Connection:
     async def execute_many(self, query: ClauseElement, values: list) -> None:
         await self._connection.execute_many(query, values)
 
-    async def iterate(
-        self, query: ClauseElement
-    ) -> typing.AsyncGenerator[typing.Any, None]:
+    @async_generator
+    async def iterate(self, query: ClauseElement):  # type: ignore
         async for record in self._connection.iterate(query):
-            yield record
+            await yield_(record)
 
     def transaction(self, *, force_rollback: bool = False) -> "Transaction":
         return Transaction(self, force_rollback)

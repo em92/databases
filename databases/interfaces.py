@@ -1,5 +1,6 @@
 import typing
 
+from async_generator import async_generator, yield_
 from sqlalchemy.engine import RowProxy
 from sqlalchemy.sql import ClauseElement
 
@@ -34,13 +35,12 @@ class ConnectionBackend:
     async def execute_many(self, query: ClauseElement, values: list) -> None:
         raise NotImplementedError()  # pragma: no cover
 
-    async def iterate(
-        self, query: ClauseElement
-    ) -> typing.AsyncGenerator[RowProxy, None]:
+    @async_generator
+    async def iterate(self, query: ClauseElement):  # type: ignore
         raise NotImplementedError()  # pragma: no cover
         # mypy needs async iterators to contain a `yield`
         # https://github.com/python/mypy/issues/5385#issuecomment-407281656
-        yield True  # pragma: no cover
+        await yield_(True)  # pragma: no cover
 
     def transaction(self) -> "TransactionBackend":
         raise NotImplementedError()  # pragma: no cover

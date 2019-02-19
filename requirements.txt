@@ -19,3 +19,6 @@ pytest
 pytest-cov
 git+https://github.com/em92/starlette
 requests
+
+# Python 3.5 porting
+async_generator

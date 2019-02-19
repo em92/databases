@@ -3,6 +3,7 @@ import typing
 import uuid
 
 import aiosqlite
+from async_generator import async_generator, yield_
 from sqlalchemy.dialects.sqlite import pysqlite
 from sqlalchemy.engine.interfaces import Dialect, ExecutionContext
 from sqlalchemy.engine.result import ResultMetaData, RowProxy
@@ -113,16 +114,17 @@ class SQLiteConnection(ConnectionBackend):
         for value in values:
             await self.execute(query, value)
 
-    async def iterate(
-        self, query: ClauseElement
-    ) -> typing.AsyncGenerator[typing.Any, None]:
+    @async_generator
+    async def iterate(self, query: ClauseElement):  # type: ignore
         assert self._connection is not None, "Connection is not acquired"
         query, args, context = self._compile(query)
         cursor = await self._connection.cursor()
         async with self._connection.execute(query, args) as cursor:
             metadata = ResultMetaData(context, cursor.description)
             async for row in cursor:
-                yield RowProxy(metadata, row, metadata._processors, metadata._keymap)
+                await yield_(
+                    RowProxy(metadata, row, metadata._processors, metadata._keymap)
+                )
 
     def transaction(self) -> TransactionBackend:
         return SQLiteTransaction(self)

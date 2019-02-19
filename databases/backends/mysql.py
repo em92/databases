@@ -4,6 +4,7 @@ import typing
 import uuid
 
 import aiomysql
+from async_generator import async_generator, yield_
 from sqlalchemy.dialects.mysql import pymysql
 from sqlalchemy.engine.interfaces import Dialect, ExecutionContext
 from sqlalchemy.engine.result import ResultMetaData, RowProxy
@@ -114,9 +115,8 @@ class MySQLConnection(ConnectionBackend):
         finally:
             await cursor.close()
 
-    async def iterate(
-        self, query: ClauseElement
-    ) -> typing.AsyncGenerator[typing.Any, None]:
+    @async_generator
+    async def iterate(self, query: ClauseElement):  # type: ignore
         assert self._connection is not None, "Connection is not acquired"
         query, args, context = self._compile(query)
         cursor = await self._connection.cursor()
@@ -124,7 +124,9 @@ class MySQLConnection(ConnectionBackend):
             await cursor.execute(query, args)
             metadata = ResultMetaData(context, cursor.description)
             async for row in cursor:
-                yield RowProxy(metadata, row, metadata._processors, metadata._keymap)
+                await yield_(
+                    RowProxy(metadata, row, metadata._processors, metadata._keymap)
+                )
         finally:
             await cursor.close()
 
