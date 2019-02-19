@@ -134,7 +134,8 @@ class SQLiteConnection(ConnectionBackend):
     ) -> typing.Tuple[str, list, CompilationContext]:
         compiled = query.compile(dialect=self._dialect)
         args = []
-        for key, raw_val in compiled.construct_params().items():
+        for key in compiled.positiontup:
+            raw_val = compiled.construct_params()[key]
             if key in compiled._bind_processors:
                 val = compiled._bind_processors[key](raw_val)
             else:
