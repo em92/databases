@@ -17,5 +17,5 @@ isort
 mypy
 pytest
 pytest-cov
-starlette
+git+https://github.com/em92/starlette
 requests
