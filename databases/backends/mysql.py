@@ -167,10 +167,10 @@ class MySQLTransaction(TransactionBackend):
             await self._connection._connection.begin()
         else:
             id = str(uuid.uuid4()).replace("-", "_")
-            self._savepoint_name = f"STARLETTE_SAVEPOINT_{id}"
+            self._savepoint_name = "STARLETTE_SAVEPOINT_{}".format(id)
             cursor = await self._connection._connection.cursor()
             try:
-                await cursor.execute(f"SAVEPOINT {self._savepoint_name}")
+                await cursor.execute("SAVEPOINT {}".format(self._savepoint_name))
             finally:
                 await cursor.close()
 
@@ -181,7 +181,9 @@ class MySQLTransaction(TransactionBackend):
         else:
             cursor = await self._connection._connection.cursor()
             try:
-                await cursor.execute(f"RELEASE SAVEPOINT {self._savepoint_name}")
+                await cursor.execute(
+                    "RELEASE SAVEPOINT {}".format(self._savepoint_name)
+                )
             finally:
                 await cursor.close()
 
@@ -192,6 +194,8 @@ class MySQLTransaction(TransactionBackend):
         else:
             cursor = await self._connection._connection.cursor()
             try:
-                await cursor.execute(f"ROLLBACK TO SAVEPOINT {self._savepoint_name}")
+                await cursor.execute(
+                    "ROLLBACK TO SAVEPOINT {}".format(self._savepoint_name)
+                )
             finally:
                 await cursor.close()

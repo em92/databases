@@ -167,9 +167,9 @@ class SQLiteTransaction(TransactionBackend):
             await cursor.close()
         else:
             id = str(uuid.uuid4()).replace("-", "_")
-            self._savepoint_name = f"STARLETTE_SAVEPOINT_{id}"
+            self._savepoint_name = "STARLETTE_SAVEPOINT_{}".format(id)
             cursor = await self._connection._connection.execute(
-                f"SAVEPOINT {self._savepoint_name}"
+                "SAVEPOINT {}".format(self._savepoint_name)
             )
             await cursor.close()
 
@@ -180,7 +180,7 @@ class SQLiteTransaction(TransactionBackend):
             await cursor.close()
         else:
             cursor = await self._connection._connection.execute(
-                f"RELEASE SAVEPOINT {self._savepoint_name}"
+                "RELEASE SAVEPOINT {}".format(self._savepoint_name)
             )
             await cursor.close()
 
@@ -191,6 +191,6 @@ class SQLiteTransaction(TransactionBackend):
             await cursor.close()
         else:
             cursor = await self._connection._connection.execute(
-                f"ROLLBACK TO SAVEPOINT {self._savepoint_name}"
+                "ROLLBACK TO SAVEPOINT {}".format(self._savepoint_name)
             )
             await cursor.close()

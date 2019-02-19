@@ -308,12 +308,12 @@ class DatabaseURL:
 
             netloc = hostname
             if port is not None:
-                netloc += f":{port}"
+                netloc += ":{}".format(port)
             if username is not None:
                 userpass = username
                 if password is not None:
-                    userpass += f":{password}"
-                netloc = f"{userpass}@{netloc}"
+                    userpass += ":{}".format(password)
+                netloc = "{}@{}".format(userpass, netloc)
 
             kwargs["netloc"] = netloc
 
@@ -323,7 +323,7 @@ class DatabaseURL:
         if "dialect" in kwargs or "driver" in kwargs:
             dialect = kwargs.pop("dialect", self.dialect)
             driver = kwargs.pop("driver", self.driver)
-            kwargs["scheme"] = f"{dialect}+{driver}" if driver else dialect
+            kwargs["scheme"] = "{}+{}".format(dialect, driver) if driver else dialect
 
         if not kwargs.get("netloc", self.netloc):
             # Using an empty string that evaluates as True means we end
@@ -340,4 +340,4 @@ class DatabaseURL:
         url = str(self)
         if self.password:
             url = str(self.replace(password="********"))
-        return f"{self.__class__.__name__}({repr(url)})"
+        return "{}({})".format(self.__class__.__name__, repr(url))
