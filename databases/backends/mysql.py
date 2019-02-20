@@ -93,7 +93,7 @@ class MySQLConnection(ConnectionBackend):
         finally:
             await cursor.close()
 
-    async def execute(self, query: ClauseElement, values: dict = None) -> None:
+    async def execute(self, query: ClauseElement, values: dict = None) -> typing.Any:
         assert self._connection is not None, "Connection is not acquired"
         if values is not None:
             query = query.values(values)
@@ -101,6 +101,7 @@ class MySQLConnection(ConnectionBackend):
         cursor = await self._connection.cursor()
         try:
             await cursor.execute(query, args)
+            return cursor.lastrowid
         finally:
             await cursor.close()
 
