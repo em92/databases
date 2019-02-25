@@ -1,7 +1,6 @@
 import typing
 
 from async_generator import async_generator, yield_
-from sqlalchemy.engine import RowProxy
 from sqlalchemy.sql import ClauseElement
 
 
@@ -23,13 +22,13 @@ class ConnectionBackend:
     async def release(self) -> None:
         raise NotImplementedError()  # pragma: no cover
 
-    async def fetch_all(self, query: ClauseElement) -> typing.List[RowProxy]:
+    async def fetch_all(self, query: ClauseElement) -> typing.List[typing.Mapping]:
         raise NotImplementedError()  # pragma: no cover
 
-    async def fetch_one(self, query: ClauseElement) -> RowProxy:
+    async def fetch_one(self, query: ClauseElement) -> typing.Optional[typing.Mapping]:
         raise NotImplementedError()  # pragma: no cover
 
-    async def execute(self, query: ClauseElement, values: dict = None) -> None:
+    async def execute(self, query: ClauseElement, values: dict = None) -> typing.Any:
         raise NotImplementedError()  # pragma: no cover
 
     async def execute_many(self, query: ClauseElement, values: list) -> None:
