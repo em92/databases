@@ -171,8 +171,13 @@ class MySQLConnection(ConnectionBackend):
             compiled._textual_ordered_columns,
         )
 
-        logger.debug(compiled.string, args)
+        logger.debug("Query: %s\nArgs: %s", compiled.string, args)
         return compiled.string, args, CompilationContext(execution_context)
+
+    @property
+    def raw_connection(self) -> aiomysql.connection.Connection:
+        assert self._connection is not None, "Connection is not acquired"
+        return self._connection
 
 
 class MySQLTransaction(TransactionBackend):
