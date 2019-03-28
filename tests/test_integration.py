@@ -2,11 +2,11 @@ import os
 
 import pytest
 import sqlalchemy
+
+from databases import Database, DatabaseURL
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
-
-from databases import Database, DatabaseURL
 
 assert "TEST_DATABASE_URLS" in os.environ, "TEST_DATABASE_URLS is not set."
 
