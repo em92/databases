@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import decimal
 import functools
 import os
 
@@ -59,6 +60,14 @@ custom_date = sqlalchemy.Table(
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("title", sqlalchemy.String(length=100)),
     sqlalchemy.Column("published", MyEpochType),
+)
+
+# Used to test Numeric
+prices = sqlalchemy.Table(
+    "prices",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("price", sqlalchemy.Numeric(precision=30, scale=20)),
 )
 
 
@@ -458,6 +467,33 @@ async def test_datetime_field(database_url):
 
 @pytest.mark.parametrize("database_url", DATABASE_URLS)
 @async_adapter
+async def test_decimal_field(database_url):
+    """
+    Test Decimal (NUMERIC) columns, to ensure records are coerced to/from proper Python types.
+    """
+
+    async with Database(database_url) as database:
+        async with database.transaction(force_rollback=True):
+            price = decimal.Decimal("0.700000000000001")
+
+            # execute()
+            query = prices.insert()
+            values = {"price": price}
+            await database.execute(query, values)
+
+            # fetch_all()
+            query = prices.select()
+            results = await database.fetch_all(query=query)
+            assert len(results) == 1
+            if database_url.startswith("sqlite"):
+                # aiosqlite does not support native decimals --> a roud-off error is expected
+                assert results[0]["price"] == pytest.approx(price)
+            else:
+                assert results[0]["price"] == price
+
+
+@pytest.mark.parametrize("database_url", DATABASE_URLS)
+@async_adapter
 async def test_json_field(database_url):
     """
     Test JSON columns, to ensure correct cross-database support.
@@ -699,3 +735,92 @@ async def test_database_url_interface(database_url):
     async with Database(database_url) as database:
         assert isinstance(database.url, DatabaseURL)
         assert database.url == database_url
+
+
+@pytest.mark.parametrize("database_url", DATABASE_URLS)
+@async_adapter
+async def test_concurrent_access_on_single_connection(database_url):
+    database_url = DatabaseURL(database_url)
+    if database_url.dialect != "postgresql":
+        pytest.skip("Test requires `pg_sleep()`")
+
+    async with Database(database_url, force_rollback=True) as database:
+
+        async def db_lookup():
+            await database.fetch_one("SELECT pg_sleep(1)")
+
+        await asyncio.gather(db_lookup(), db_lookup())
+
+
+@pytest.mark.parametrize("database_url", DATABASE_URLS)
+@async_adapter
+async def test_iterate_outside_transaction_with_values(database_url):
+    """
+    Ensure `iterate()` works even without a transaction on all drivers.
+    The asyncpg driver relies on server-side cursors without hold
+    for iteration, which requires a transaction to be created.
+    This is mentionned in both their documentation and their test suite.
+    """
+
+    database_url = DatabaseURL(database_url)
+    if database_url.dialect == "mysql":
+        pytest.skip("MySQL does not support `FROM (VALUES ...)` (F641)")
+
+    async with Database(database_url) as database:
+        query = "SELECT * FROM (VALUES (1), (2), (3), (4), (5)) as t"
+        iterate_results = []
+
+        async for result in database.iterate(query=query):
+            iterate_results.append(result)
+
+        assert len(iterate_results) == 5
+
+
+@pytest.mark.parametrize("database_url", DATABASE_URLS)
+@async_adapter
+async def test_iterate_outside_transaction_with_temp_table(database_url):
+    """
+    Same as test_iterate_outside_transaction_with_values but uses a
+    temporary table instead of a list of values.
+    """
+
+    database_url = DatabaseURL(database_url)
+    if database_url.dialect == "sqlite":
+        pytest.skip("SQLite interface does not work with temporary tables.")
+
+    async with Database(database_url) as database:
+        query = "CREATE TEMPORARY TABLE no_transac(num INTEGER)"
+        await database.execute(query)
+
+        query = "INSERT INTO no_transac(num) VALUES (1), (2), (3), (4), (5)"
+        await database.execute(query)
+
+        query = "SELECT * FROM no_transac"
+        iterate_results = []
+
+        async for result in database.iterate(query=query):
+            iterate_results.append(result)
+
+        assert len(iterate_results) == 5
+
+
+@pytest.mark.parametrize("database_url", DATABASE_URLS)
+@pytest.mark.parametrize("select_query", [notes.select(), "SELECT * FROM notes"])
+@async_adapter
+async def test_column_names(database_url, select_query):
+    """
+    Test that column names are exposed correctly through `.keys()` on each row.
+    """
+    async with Database(database_url) as database:
+        async with database.transaction(force_rollback=True):
+            # insert values
+            query = notes.insert()
+            values = {"text": "example1", "completed": True}
+            await database.execute(query, values)
+            # fetch results
+            results = await database.fetch_all(query=select_query)
+            assert len(results) == 1
+
+            assert sorted(results[0].keys()) == ["completed", "id", "text"]
+            assert results[0]["text"] == "example1"
+            assert results[0]["completed"] == True

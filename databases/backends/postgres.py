@@ -37,6 +37,7 @@ class PostgresBackend(DatabaseBackend):
         dialect._backslash_escapes = False
         dialect.supports_sane_multi_rowcount = True  # psycopg 2.0.9+
         dialect._has_native_hstore = True
+        dialect.supports_native_decimal = True
 
         return dialect
 
@@ -115,10 +116,10 @@ class Record(Mapping):
         return raw
 
     def __iter__(self) -> typing.Iterator:
-        return iter(self._column_map)
+        return iter(self._row.keys())
 
     def __len__(self) -> int:
-        return len(self._column_map)
+        return len(self._row)
 
 
 class PostgresConnection(ConnectionBackend):

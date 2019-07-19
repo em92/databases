@@ -162,6 +162,8 @@ class Connection:
         self._transaction_lock = asyncio.Lock()
         self._transaction_stack = []  # type: typing.List[Transaction]
 
+        self._query_lock = asyncio.Lock()
+
     async def __aenter__(self) -> "Connection":
         async with self._connection_lock:
             self._connection_counter += 1
@@ -184,12 +186,14 @@ class Connection:
     async def fetch_all(
         self, query: typing.Union[ClauseElement, str], values: dict = None
     ) -> typing.List[typing.Mapping]:
-        return await self._connection.fetch_all(self._build_query(query, values))
+        async with self._query_lock:
+            return await self._connection.fetch_all(self._build_query(query, values))
 
     async def fetch_one(
         self, query: typing.Union[ClauseElement, str], values: dict = None
     ) -> typing.Optional[typing.Mapping]:
-        return await self._connection.fetch_one(self._build_query(query, values))
+        async with self._query_lock:
+            return await self._connection.fetch_one(self._build_query(query, values))
 
     async def fetch_val(
         self,
@@ -197,26 +201,33 @@ class Connection:
         values: dict = None,
         column: typing.Any = 0,
     ) -> typing.Any:
-        row = await self._connection.fetch_one(self._build_query(query, values))
+        async with self._query_lock:
+            row = await self._connection.fetch_one(self._build_query(query, values))
         return None if row is None else row[column]
 
     async def execute(
         self, query: typing.Union[ClauseElement, str], values: dict = None
     ) -> typing.Any:
-        return await self._connection.execute(self._build_query(query, values))
+        async with self._query_lock:
+            return await self._connection.execute(self._build_query(query, values))
 
     async def execute_many(
         self, query: typing.Union[ClauseElement, str], values: list
     ) -> None:
         queries = [self._build_query(query, values_set) for values_set in values]
-        await self._connection.execute_many(queries)
+        async with self._query_lock:
+            await self._connection.execute_many(queries)
 
     @async_generator
     async def iterate(  # type: ignore
         self, query: typing.Union[ClauseElement, str], values: dict = None
     ):
-        async for record in self._connection.iterate(self._build_query(query, values)):
-            await yield_(record)
+        async with self.transaction():
+            async with self._query_lock:
+                async for record in self._connection.iterate(
+                    self._build_query(query, values)
+                ):
+                    await yield_(record)
 
     def transaction(self, *, force_rollback: bool = False) -> "Transaction":
         return Transaction(self, force_rollback)
@@ -354,7 +365,10 @@ class DatabaseURL:
 
     @property
     def database(self) -> str:
-        return self.components.path.lstrip("/")
+        path = self.components.path
+        if path.startswith("/"):
+            path = path[1:]
+        return path
 
     @property
     def options(self) -> dict:
